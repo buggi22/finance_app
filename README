@@ -1,6 +1,8 @@
-This software project implements a web app for tracking budgets, similar to the traditional "envelope system" for personal budget management.
+This software project implements a simple web app for tracking budgets, similar to the traditional "envelope system" for personal budget management.
 
 Dependencies:
 * Python
 * Flask
 * SQLite3
+
+For licensing information, see the "LICENSE" file in the top-level directory.
