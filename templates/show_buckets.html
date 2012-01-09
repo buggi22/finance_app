@@ -1,0 +1,46 @@
+{% extends "layout.html" %}
+{% block body %}
+  {% if session.logged_in %}
+    <form action="{{ url_for('add_bucket') }}" method=post class=add-entry>
+      <dl>
+        <dt>Name:
+        <dd><input type=text size=30 name=name>
+        <dt>Initial balance:
+        <dd><input type=text size=30 name=initialbalance>
+        <dd><input type=submit value=Share>
+      </dl>
+    </form>
+  {% endif %}
+
+  <a href="{{ url_for('show_entries') }}">Show Entries</a>
+
+  <form action="#" method=post>
+  <table>
+    <tr>
+      <td>Bucket</td>
+      <td>Initial Balance</td>
+      <td>Net Change</td>
+      <td>Final Balance</td>
+      {% for proportion in proportionnames %}
+        <td>Proportions<br>{{ proportion }}</td>
+      {% endfor %}
+      <td>New proportion<br>Name: <input type=text size=10 /></td>
+    </tr>
+  {% for bucket in buckets %}
+    <tr>
+      <td>{{ bucket.name }}</td>
+      <td>{{ bucket.initialbalancestring }}</td>
+      <td>{{ bucket.netchangestring }}</td>
+      <td>{{ bucket.finalbalancestring }}</td>
+      {% for percent in bucket.proportions %}
+        <td>{{ percent }}%</td>
+      {% endfor %}
+      <td><input type=text size=10 value="0" /></td>
+    </tr>
+  {% else %}
+    <tr><td><em>Unbelievable.  No buckets here so far.</em></td></tr>
+  {% endfor %}
+  </table>
+  <input type=submit value=Save>
+  </form>
+{% endblock %}
