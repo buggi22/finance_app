@@ -125,7 +125,7 @@ def history_png():
     pylab.legend(seriesnames, 'lower right')
 
     imgdata = StringIO.StringIO()
-    pylab.savefig(imgdata, format='png')
+    pylab.savefig(imgdata, format='png', dpi=80)
     imgdata.seek(0)
 
     response = make_response( imgdata.read() )

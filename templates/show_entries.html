@@ -1,38 +1,27 @@
 {% extends "layout.html" %}
 {% block body %}
-  {% if session.logged_in %}
-    <form action="{{ url_for('add_entry') }}" method=post class=add-entry>
-      <dl>
-        <dt>Description:
-        <dd><input type=text size=30 name=description>
-        <dt>Amount:
-        <dd><input type=text size=30 name=amount>
-        <dt>From:
-        <dd><input type=text size=30 name=srcbucket>
-        <dt>To:
-        <dd><input type=text size=30 name=destbucket>
-        <dd><input type=submit value=Share>
-      </dl>
-    </form>
-  {% endif %}
-
-  <a href="{{ url_for('show_buckets') }}">Show Buckets</a>
-
+  <p />
+  <a href="{{ url_for('show_buckets') }}">Show Buckets</a><br />
   <img src="{{ url_for('history_png') }}" />
 
+  <div class="wide">
+  {% if session.logged_in %}
+  <form action="{{ url_for('add_entry') }}" metdod=post>
+  {% endif %}
+
   <table class="entries">
-    <tr>
-      <th>Amount</th>
-      <th>From</th>
-      <th>To</th>
-      <th>&nbsp;</th>
+    <tr class="entry-header">
+      <td>Amount</td>
+      <td>From</td>
+      <td>To</td>
+      <td>&nbsp;</td>
       {% for internal in internals %}
-      <th>{{ internal.bucketname }}</th>
+      <td>{{ internal.bucketname }}</td>
       {% endfor %}
     </tr>
     <tr class=resultingbalance>
       <td colspan=3>&nbsp;</td>
-      <td>Initial balance: </td>
+      <td>Initial: </td>
       {% for internal in internals %}
       <td align="right">{{ internal.initialbalancestring }}</td>
       {% endfor %}
@@ -42,14 +31,14 @@
       <td align="right">{{ entry.amountstring }}</td>
       <td>{{ entry.srcbucket }}</td>
       <td>{{ entry.destbucket }}</td>
-      <td>Change in balance:</td>
+      <td>Change:</td>
       {% for internal in entry.internals %}
       <td align="right">{{ internal }}</td>
       {% endfor %}
     </tr>
     <tr class=resultingbalance>
       <td colspan=3>{{ entry.description }}&nbsp;</td>
-      <td>Resulting balance:</td>
+      <td>Result:</td>
       {% for balance in entry.balances %}
       <td align="right">{{ balance }}</td>
       {% endfor %}
@@ -57,6 +46,32 @@
   {% else %}
     <tr><td><em>Unbelievable.  No entries here so far</em></td></tr>
   {% endfor %}
-    <!-- TODO: put new-entry form at bottom row of table -->
+  {% if session.logged_in %}
+    <tr>
+      <td>Amount<br/><input type=text size=10 name=amount></td>
+      <td>From<br/><input type=text size=10 name=srcbucket></td>
+      <td>To<br/><input type=text size=10 name=destbucket></td>
+      <td>&nbsp;</td>
+      {% for internal in internals %}
+      <td>&nbsp;</td>
+      {% endfor %}
+    </tr>
+    <tr class=resultingbalance>
+      <td colspan=3>
+        Description<br/>
+        <input type=text size=30 name=description>
+        <input type=submit value="Add Entry">
+      </td>
+      <td>&nbsp;</td>
+      {% for internal in internals %}
+      <td>&nbsp;</td>
+      {% endfor %}
+    </tr>
+  {% endif %}
   </table>
+
+  {% if session.logged_in %}
+  </form>
+  {% endif %}
+  </div>
 {% endblock %}
