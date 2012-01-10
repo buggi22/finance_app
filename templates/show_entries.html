@@ -18,42 +18,45 @@
 
   <a href="{{ url_for('show_buckets') }}">Show Buckets</a>
 
-  <table>
+  <img src="{{ url_for('history_png') }}" />
+
+  <table class="entries">
     <tr>
-      <td>Amount</td>
-      <td>From</td>
-      <td>To</td>
-      <td>&nbsp;</td>
+      <th>Amount</th>
+      <th>From</th>
+      <th>To</th>
+      <th>&nbsp;</th>
       {% for internal in internals %}
-      <td>{{ internal.bucketname }}</td>
+      <th>{{ internal.bucketname }}</th>
       {% endfor %}
     </tr>
     <tr class=resultingbalance>
       <td colspan=3>&nbsp;</td>
       <td>Initial balance: </td>
       {% for internal in internals %}
-      <td>{{ internal.initialbalancestring }}</td>
+      <td align="right">{{ internal.initialbalancestring }}</td>
       {% endfor %}
     </tr>
   {% for entry in entries %}
     <tr>
-      <td>{{ entry.amountstring }}</td>
+      <td align="right">{{ entry.amountstring }}</td>
       <td>{{ entry.srcbucket }}</td>
       <td>{{ entry.destbucket }}</td>
       <td>Change in balance:</td>
       {% for internal in entry.internals %}
-      <td>{{ internal }}</td>
+      <td align="right">{{ internal }}</td>
       {% endfor %}
     </tr>
     <tr class=resultingbalance>
       <td colspan=3>{{ entry.description }}&nbsp;</td>
       <td>Resulting balance:</td>
       {% for balance in entry.balances %}
-      <td>{{ balance }}</td>
+      <td align="right">{{ balance }}</td>
       {% endfor %}
     </tr>
   {% else %}
-    <li><em>Unbelievable.  No entries here so far</em>
+    <tr><td><em>Unbelievable.  No entries here so far</em></td></tr>
   {% endfor %}
+    <!-- TODO: put new-entry form at bottom row of table -->
   </table>
 {% endblock %}

@@ -1,7 +1,9 @@
-# all the imports
+# imports
 import sqlite3
+import StringIO
+import pylab
 from flask import Flask, request, session, g, redirect, url_for, \
-     abort, render_template, flash
+     abort, render_template, flash, make_response
 
 # configuration
 DATABASE = '/tmp/finance.db'
@@ -10,11 +12,10 @@ SECRET_KEY = 'development key'
 USERNAME = 'admin'
 PASSWORD = 'default'
 
-# create our little application :)
 app = Flask(__name__)
 app.config.from_object(__name__)
 
-app.config.from_envvar('FLASKR_SETTINGS', silent=True)
+app.config.from_envvar('FINANCE_APP_SETTINGS', silent=True)
 
 def connect_db():
     return sqlite3.connect(app.config['DATABASE'])
@@ -27,8 +28,7 @@ def before_request():
 def teardown_request(exception):
     g.db.close()
 
-@app.route('/')
-def show_entries():
+def get_entries():
     cur = g.db.execute('select description, amountcents, srcbucketname, srcbucketid, destbucketname, destbucketid, entryid from entries_labeled')
     entries = [dict(description=row[0], amountstring=cents_to_string(row[1]), srcbucket=str(row[2]), srcbucketid=row[3], destbucket=str(row[4]), destbucketid=row[5], entryid=row[6]) for row in cur.fetchall()]
 
@@ -45,12 +45,17 @@ def show_entries():
             entries[i / numinternals]['internals'] = []
             entries[i / numinternals]['balances'] = []
         change_string = cents_to_string( int(row[2]) ) if row[2] <> 0 else "-"
-        entries[i / numinternals]['internals'] += [change_string]
+        entries[i / numinternals]['internals'] += [ change_string ]
         runningtotals[i % numinternals] += row[2]
         entries[i / numinternals]['balances'] += [ cents_to_string( int(runningtotals[i % numinternals]) ) ]
         row = cur.fetchone()
         i += 1
 
+    return (entries, internals)
+
+@app.route('/')
+def show_entries():
+    entries, internals = get_entries()
     return render_template('show_entries.html', entries=entries, internals=internals)
 
 @app.route('/add_entry', methods=['POST'])
@@ -99,9 +104,34 @@ def add_bucket():
     flash('New bucket was successfully added')
     return redirect(url_for('show_buckets'))
 
-def bucketname_to_int(name):
-    return g.db.execute('select bucketid from buckets where bucketname = ?', [name]) \
-        .fetchall()[0][0]
+@app.route('/history.png')
+def history_png():
+    entries, internals = get_entries()
+
+    xvalues = pylab.arange(0, len(entries)+1, 1)
+    yvalues = [[internal['initialbalancecents'] / 100.0] for internal in internals]
+
+    for e in entries:
+        for i, balance in enumerate(e['balances']):
+            yvalues[i] += [string_to_cents(balance) / 100.0]
+
+    series = []
+    for yv in yvalues:
+        series += [xvalues, yv]
+
+    pylab.clf() # clear current figure
+    pylab.plot(*series)
+    seriesnames = [internal['bucketname'] for internal in internals]
+    pylab.legend(seriesnames, 'lower right')
+
+    imgdata = StringIO.StringIO()
+    pylab.savefig(imgdata, format='png')
+    imgdata.seek(0)
+
+    response = make_response( imgdata.read() )
+    response.mimetype = 'image/png'
+
+    return response
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -123,14 +153,17 @@ def logout():
     flash('You were logged out')
     return redirect(url_for('show_entries'))
 
+def bucketname_to_int(name):
+    return g.db.execute('select bucketid from buckets where bucketname = ?', [name]) \
+        .fetchall()[0][0]
+
 def cents_to_string(cents):
     sign = ''
     if(cents == None):
         return 'None'
     elif(cents < 0):
-        cents = -cents
         sign = '-'
-    return sign + "$%d.%02d" % (int(cents/100), cents % 100)
+    return sign + "$%d.%02d" % (int(abs(cents)/100), abs(cents) % 100)
 
 def string_to_cents(s):
     multiplier = 1
