@@ -1,6 +1,6 @@
 1,external,external,0
-2,test1,internal,10000
-3,test2,internal,12300
-4,test3,internal,56708
-5,proportion1,proportion,0
-6,proportion2,proportion,0
+2,emergency,internal,10000
+3,rent_savings,internal,12300
+4,groceries_savings,internal,56708
+5,paychecks_A,proportion,0
+6,paychecks_B,proportion,0

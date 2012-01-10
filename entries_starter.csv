@@ -1,12 +1,12 @@
-1,a,10,1,2
-2,b,20,1,5
-3,c,30,1,6
-4,d,40,2,1
-5,e,50,5,6
-6,f,60,2,1
-7,g,70,3,1
-8,h,80,4,1
-9,i,90,2,3
-10,j,100,6,5
-11,k,110,5,4
-12,l,120,4,2
+1,paycheck from X,200000,1,5
+2,paycheck from Y,100000,1,6
+3,holiday bonus,10000,1,2
+4,doctor bill,4000,2,1
+5,correction / redistribution,5000,5,6
+6,car repair,60000,2,1
+7,utilities bill,7000,3,1
+8,groceries,8000,4,1
+9,correction / redistribution,9000,2,3
+10,correction / redistribution,10000,6,5
+11,correction / redistribution,11000,5,4
+12,correction / redistribution,12000,4,2
