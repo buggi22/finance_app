@@ -37,10 +37,9 @@ def get_entries():
     numinternals = len(internals)
 
     cur = g.db.execute('select entryid, bucketid_for_change, amountcents from entries_with_bucket_changes')
-    i = 0
     runningtotals = [b['initialbalancecents'] for b in internals]
-    row = cur.fetchone()
-    while (row != None):
+
+    for i, row in enumerate(cur.fetchall()):
         if(i % numinternals == 0):
             entries[i / numinternals]['internals'] = []
             entries[i / numinternals]['balances'] = []
@@ -48,8 +47,6 @@ def get_entries():
         entries[i / numinternals]['internals'] += [ change_string ]
         runningtotals[i % numinternals] += row[2]
         entries[i / numinternals]['balances'] += [ cents_to_string( int(runningtotals[i % numinternals]) ) ]
-        row = cur.fetchone()
-        i += 1
 
     return (entries, internals)
 
