@@ -15,15 +15,15 @@
       <td>From</td>
       <td>To</td>
       <td>&nbsp;</td>
-      {% for internal in internals %}
-      <td>{{ internal.bucketname }}</td>
+      {% for initial_balance in initial_balances %}
+      <td>{{ initial_balance.bucketname }}</td>
       {% endfor %}
     </tr>
     <tr class=resultingbalance>
       <td colspan=3>&nbsp;</td>
       <td>Initial: </td>
-      {% for internal in internals %}
-      <td align="right">{{ internal.initialbalancestring }}</td>
+      {% for initial_balance in initial_balances %}
+      <td align="right">{{ initial_balance.initialbalancestring }}</td>
       {% endfor %}
     </tr>
   {% for entry in entries %}
@@ -32,15 +32,15 @@
       <td>{{ entry.srcbucket }}</td>
       <td>{{ entry.destbucket }}</td>
       <td>Change:</td>
-      {% for internal in entry.internals %}
-      <td align="right">{{ internal }}</td>
+      {% for change in entry.changes %}
+      <td align="right">{{ change.amountstring }}</td>
       {% endfor %}
     </tr>
     <tr class=resultingbalance>
       <td colspan=3>{{ entry.description }}&nbsp;</td>
       <td>Result:</td>
       {% for balance in entry.balances %}
-      <td align="right">{{ balance }}</td>
+      <td align="right">{{ balance.balancestring }}</td>
       {% endfor %}
     </tr>
   {% else %}
@@ -52,7 +52,7 @@
       <td>From<br/><input type=text size=10 name=srcbucket></td>
       <td>To<br/><input type=text size=10 name=destbucket></td>
       <td>&nbsp;</td>
-      {% for internal in internals %}
+      {% for initial_balance in initial_balances %}
       <td>&nbsp;</td>
       {% endfor %}
     </tr>
@@ -63,7 +63,7 @@
         <input type=submit value="Add Entry">
       </td>
       <td>&nbsp;</td>
-      {% for internal in internals %}
+      {% for initial_balance in initial_balances %}
       <td>&nbsp;</td>
       {% endfor %}
     </tr>

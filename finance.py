@@ -28,16 +28,110 @@ def before_request():
 def teardown_request(exception):
     g.db.close()
 
-def get_entries():
-    cur = g.db.execute('select description, amountcents, srcbucketname, srcbucketid, destbucketname, destbucketid, entryid from entries_labeled')
-    entries = [dict(description=row[0], amountstring=cents_to_string(row[1]), srcbucket=str(row[2]), srcbucketid=row[3], destbucket=str(row[4]), destbucketid=row[5], entryid=row[6]) for row in cur.fetchall()]
+def update_balances(balances, changes):
+    if(len(balances) != len(changes)):
+        raise Exception("balances must be same length as changes")
 
+    result = []
+
+    for i, bucket_balance in enumerate(balances):
+        new_balance = changes[i]['amountcents']
+        if('initialbalancecents' in bucket_balance):
+            new_balance += bucket_balance['initialbalancecents']
+        else:
+            new_balance += bucket_balance['balancecents']
+
+    	result.append( {
+            'bucketname': bucket_balance['bucketname'],
+            'balancecents': new_balance,
+            'balancestring': cents_to_string( new_balance )
+        } )
+
+    return result
+        
+
+def get_balances_at(datetime=None):
     cur = g.db.execute('select bucketid, bucketname, initialbalancecents from buckets where buckettype = "internal"')
-    internals = [dict(bucketname=row[1], initialbalancecents=row[2], initialbalancestring=cents_to_string(row[2])) for row in cur.fetchall()]
+    initial_balances = [
+        dict(
+            bucketname=row[1],
+            initialbalancecents=row[2],
+            initialbalancestring=cents_to_string(row[2])
+        ) for row in cur.fetchall() ]
+
+    if(datetime == None):
+        return initial_balances
+
+    balances = [] + initial_balances
+    
+    list_of_changes = get_changes_by_entry_and_bucket(start=None, end=datetime)
+    for changes in list_of_changes:
+        balances = update_balances(balances, changes)
+
+    return balances
+
+def get_changes_by_entry_and_bucket(start=None, end=None):
+    cur = g.db.execute('select entryid, bucketid_for_change, amountcents from entries_with_bucket_changes')
+    rows = cur.fetchall()
+
+    prev_entryid = None
+    result = []
+
+    for row in rows:
+        if(row[0] != prev_entryid):
+            result.append( [] )
+        result[-1].append( dict(
+            amountcents = row[2],
+            amountstring = cents_to_string(int(row[2])) if row[2] != 0 else '-'
+        ) )
+        prev_entryid = row[0]
+
+    return result
+
+def get_ending_balances_by_entry_and_bucket(start=None, end=None):
+    balances = get_balances_at(start)
+    result = []
+    list_of_changes = get_changes_by_entry_and_bucket(start, end)
+
+    for changes in list_of_changes:
+        balances = update_balances(balances, changes)
+        result.append(balances)
+
+    return result
+
+def get_entries(start=None, end=None):
+    cur = g.db.execute('select description, amountcents, srcbucketname, srcbucketid, ' +
+        'destbucketname, destbucketid, entryid from entries_labeled')
+    entries = [ 
+        dict(
+            description=row[0],
+            amountstring=cents_to_string(row[1]),
+            srcbucket=str(row[2]),
+            srcbucketid=row[3],
+            destbucket=str(row[4]),
+            destbucketid=row[5],
+            entryid=row[6]
+        ) for row in cur.fetchall() ]
+    return entries
+
+def get_entries_with_changes_and_balances(start=None, end=None):
+    entries = get_entries(start, end)
+    initial_balances = get_balances_at(start)
+    changes = get_changes_by_entry_and_bucket(start, end)
+    balances = get_ending_balances_by_entry_and_bucket(start, end)
+
+    for i in range(len(entries)):
+        entries[i]['balances'] = balances[i]
+        entries[i]['changes'] = changes[i]
+
+    return (entries, initial_balances)
+
+    '''
+    internals = get_balances_at(start)
     numinternals = len(internals)
 
-    cur = g.db.execute('select entryid, bucketid_for_change, amountcents from entries_with_bucket_changes')
     runningtotals = [b['initialbalancecents'] for b in internals]
+    cur = g.db.execute('select entryid, bucketid_for_change, amountcents from entries_with_bucket_changes')
 
     for i, row in enumerate(cur.fetchall()):
         if(i % numinternals == 0):
@@ -49,11 +143,13 @@ def get_entries():
         entries[i / numinternals]['balances'] += [ cents_to_string( int(runningtotals[i % numinternals]) ) ]
 
     return (entries, internals)
+    '''
 
 @app.route('/')
 def show_entries():
-    entries, internals = get_entries()
-    return render_template('show_entries.html', entries=entries, internals=internals)
+    entries, initial_balances = get_entries_with_changes_and_balances()
+    return render_template('show_entries.html', entries=entries,
+                           initial_balances=initial_balances)
 
 @app.route('/add_entry', methods=['POST'])
 def add_entry():
@@ -69,7 +165,8 @@ def add_entry():
 
 @app.route('/show_buckets')
 def show_buckets():
-    cur = g.db.execute('select bucketname, initialbalancecents, net_change, finalbalancecents from buckets_with_net_change where buckettype = "internal" order by bucketid asc')
+    cur = g.db.execute('select bucketname, initialbalancecents, net_change, finalbalancecents from ' +
+        'buckets_with_net_change where buckettype = "internal" order by bucketid asc')
     buckets = [dict(name=row[0], initialbalancestring=cents_to_string(row[1]),
                netchangestring=cents_to_string(row[2]),
                finalbalancestring=cents_to_string(row[3]) )
@@ -103,14 +200,15 @@ def add_bucket():
 
 @app.route('/history.png')
 def history_png():
-    entries, internals = get_entries()
+    entries, initial_balances = get_entries_with_changes_and_balances()
 
     xvalues = pylab.arange(0, len(entries)+1, 1)
-    yvalues = [[internal['initialbalancecents'] / 100.0] for internal in internals]
+    yvalues = [[initial_balance['initialbalancecents'] / 100.0] for initial_balance in initial_balances]
+    seriesnames = [initial_balance['bucketname'] for initial_balance in initial_balances]
 
     for e in entries:
         for i, balance in enumerate(e['balances']):
-            yvalues[i] += [string_to_cents(balance) / 100.0]
+            yvalues[i] += [ balance['balancecents'] / 100.0]
 
     series = []
     for yv in yvalues:
@@ -118,7 +216,6 @@ def history_png():
 
     pylab.clf() # clear current figure
     pylab.plot(*series)
-    seriesnames = [internal['bucketname'] for internal in internals]
     pylab.legend(seriesnames, 'lower right')
 
     imgdata = StringIO.StringIO()
