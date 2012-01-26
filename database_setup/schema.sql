@@ -20,7 +20,8 @@ create table entries (
   description string not null,
   amountcents integer,
   srcbucket integer,
-  destbucket integer
+  destbucket integer,
+  date string
 );
 
 .import entries_starter.csv entries
@@ -38,7 +39,7 @@ create table proportions (
 
 drop view if exists entries_labeled;
 create view entries_labeled as
-select entryid, description, amountcents, src.bucketid as srcbucketid, src.bucketname as srcbucketname, src.buckettype as srcbuckettype, dest.bucketid as destbucketid, dest.bucketname as destbucketname, dest.buckettype as destbuckettype
+select entryid, description, amountcents, date, src.bucketid as srcbucketid, src.bucketname as srcbucketname, src.buckettype as srcbuckettype, dest.bucketid as destbucketid, dest.bucketname as destbucketname, dest.buckettype as destbuckettype
 from entries
   join buckets as src
     on entries.srcbucket = src.bucketid
@@ -57,25 +58,25 @@ from proportions
 
 drop view if exists double_entries;
 create view double_entries as 
-select entryid, description, amountcents, destbucket as bucket from entries
+select entryid, description, amountcents, date, destbucket as bucket from entries
   union
-select entryid, description, -amountcents as amountcents, srcbucket as bucket from entries;
+select entryid, description, -amountcents as amountcents, date, srcbucket as bucket from entries;
 
 drop view if exists double_entries_labeled;
 create view double_entries_labeled as
 select
-  entryid, description, amountcents, bucketid, bucketname, buckettype
+  entryid, description, amountcents, date, bucketid, bucketname, buckettype
 from double_entries
   join buckets
     on bucket = bucketid;
 
-drop view if exists double_entries_labeled_expand_proportions;
-create view double_entries_labeled_expand_proportions as
+drop view if exists double_entries_labeled_expand_proportions_fully;
+create view double_entries_labeled_expand_proportions_fully as
 select
     entryid,
     description,
-    --cast(round(amountcents * percent / 100.0) as integer) as amountcents,
     amountcents * percent / 100.0 as amountcents,
+    date,
     p.proportionbucketid as bucketid,
     p.bucketname as bucketname,
     p.buckettype as buckettype
@@ -88,27 +89,36 @@ select
   entryid,
   description,
   cast(amountcents as real) as amountcents,
+  date,
   bucketid,
   bucketname,
   buckettype
   from double_entries_labeled where buckettype <> "proportion";
 
-drop view if exists double_entries_labeled_expand_proportions_2;
-create view double_entries_labeled_expand_proportions_2 as
-select entryid, min(description) as description, sum(amountcents) as amountcents, bucketid, min(bucketname) as bucketname, min(buckettype) as buckettype from double_entries_labeled_expand_proportions group by entryid, bucketid;
+drop view if exists double_entries_labeled_expand_proportions;
+create view double_entries_labeled_expand_proportions as
+select
+  entryid,
+  min(description) as description,
+  sum(amountcents) as amountcents,
+  bucketid,
+  min(bucketname) as bucketname,
+  min(buckettype) as buckettype
+from double_entries_labeled_expand_proportions_fully
+group by entryid, bucketid;
 
 drop view if exists entries_with_bucket_changes;
 create view entries_with_bucket_changes as
 select
-  t1.entryid as entryid,
+  entries_cross_buckets.entryid as entryid,
   bucketid_for_change,
   case when de.amountcents isnull then 0.0 else de.amountcents end as amountcents
 from
   (select entryid, buckets.bucketid as bucketid_for_change
-    from entries_labeled as e, buckets where buckets.buckettype = "internal") as t1
+    from entries, buckets where buckets.buckettype = "internal") as entries_cross_buckets
   left outer join
-  double_entries_labeled_expand_proportions_2 as de
-  on t1.entryid = de.entryid and t1.bucketid_for_change = de.bucketid;
+  double_entries_labeled_expand_proportions as de
+  on entries_cross_buckets.entryid = de.entryid and entries_cross_buckets.bucketid_for_change = de.bucketid;
 
 drop view if exists net_change;
 create view net_change as
