@@ -7,8 +7,8 @@
 drop table if exists buckets;
 create table buckets (
   bucketid integer primary key autoincrement,
-  bucketname string not null,
-  buckettype string not null,
+  bucketname text not null,
+  buckettype text not null,
   initialbalancecents integer
 );
 
@@ -17,11 +17,11 @@ create table buckets (
 drop table if exists entries;
 create table entries (
   entryid integer primary key autoincrement,
-  description string not null,
+  description text not null,
   amountcents integer,
   srcbucket integer,
   destbucket integer,
-  date string
+  date text
 );
 
 .import entries_starter.csv entries
