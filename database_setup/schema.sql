@@ -101,6 +101,7 @@ select
   entryid,
   min(description) as description,
   sum(amountcents) as amountcents,
+  min(date),
   bucketid,
   min(bucketname) as bucketname,
   min(buckettype) as buckettype
@@ -111,10 +112,11 @@ drop view if exists entries_with_bucket_changes;
 create view entries_with_bucket_changes as
 select
   entries_cross_buckets.entryid as entryid,
+  date,
   bucketid_for_change,
   case when de.amountcents isnull then 0.0 else de.amountcents end as amountcents
 from
-  (select entryid, buckets.bucketid as bucketid_for_change
+  (select entryid, date, buckets.bucketid as bucketid_for_change
     from entries, buckets where buckets.buckettype = "internal") as entries_cross_buckets
   left outer join
   double_entries_labeled_expand_proportions as de
