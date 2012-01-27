@@ -2,7 +2,7 @@
 {% block body %}
   <p />
   <a href="{{ url_for('show_buckets') }}">Show Buckets</a><br />
-  <img src="{{ url_for('history_png') }}" />
+  <img src="{{ history_img_url }}" />
 
   <div class="wide">
   {% if session.logged_in %}
@@ -11,6 +11,7 @@
 
   <table class="entries">
     <tr class="entry-header">
+      <td>Date</td>
       <td>Amount</td>
       <td>From</td>
       <td>To</td>
@@ -20,14 +21,15 @@
       {% endfor %}
     </tr>
     <tr class=resultingbalance>
-      <td colspan=3>&nbsp;</td>
+      <td colspan=4>&nbsp;</td>
       <td>Initial: </td>
       {% for initial_balance in initial_balances %}
-      <td align="right">{{ initial_balance.initialbalancestring }}</td>
+      <td align="right">{{ initial_balance.balancestring }}</td>
       {% endfor %}
     </tr>
   {% for entry in entries %}
     <tr>
+      <td>{{ entry.datetime }}</td>
       <td align="right">{{ entry.amountstring }}</td>
       <td>{{ entry.srcbucket }}</td>
       <td>{{ entry.destbucket }}</td>
@@ -37,7 +39,7 @@
       {% endfor %}
     </tr>
     <tr class=resultingbalance>
-      <td colspan=3>{{ entry.description }}&nbsp;</td>
+      <td colspan=4>{{ entry.description }}&nbsp;</td>
       <td>Result:</td>
       {% for balance in entry.balances %}
       <td align="right">{{ balance.balancestring }}</td>
@@ -57,7 +59,7 @@
       {% endfor %}
     </tr>
     <tr class=resultingbalance>
-      <td colspan=3>
+      <td colspan=4>
         Description<br/>
         <input type=text size=30 name=description>
         <input type=submit value="Add Entry">

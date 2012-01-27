@@ -35,11 +35,7 @@ def update_balances(balances, changes):
     result = []
 
     for i, bucket_balance in enumerate(balances):
-        new_balance = changes[i]['amountcents']
-        if('initialbalancecents' in bucket_balance):
-            new_balance += bucket_balance['initialbalancecents']
-        else:
-            new_balance += bucket_balance['balancecents']
+        new_balance = changes[i]['amountcents'] + bucket_balance['balancecents']
 
     	result.append( {
             'bucketname': bucket_balance['bucketname'],
@@ -48,15 +44,14 @@ def update_balances(balances, changes):
         } )
 
     return result
-        
 
 def get_balances_at(datetime=None):
     cur = g.db.execute('select bucketid, bucketname, initialbalancecents from buckets where buckettype = "internal"')
     initial_balances = [
         dict(
             bucketname=row[1],
-            initialbalancecents=row[2],
-            initialbalancestring=cents_to_string(row[2])
+            balancecents=row[2],
+            balancestring=cents_to_string(row[2])
         ) for row in cur.fetchall() ]
 
     if(datetime == None):
@@ -70,8 +65,22 @@ def get_balances_at(datetime=None):
 
     return balances
 
+def rangeDateQuery(baseQuery, start, end):
+    if start == None and end == None:
+        cur = g.db.execute(baseQuery)
+    elif start == None:
+        cur = g.db.execute(baseQuery + ' where date <= ?', [end])
+    elif end == None:
+        cur = g.db.execute(baseQuery + ' where date >= ?', [start])
+    else:
+        cur = g.db.execute(baseQuery + ' where date >= ? and date <= ?',
+                           [start, end])
+    return cur
+
 def get_changes_by_entry_and_bucket(start=None, end=None):
-    cur = g.db.execute('select entryid, bucketid_for_change, amountcents from entries_with_bucket_changes')
+    cur = rangeDateQuery('select entryid, bucketid_for_change, amountcents, date from entries_with_bucket_changes',
+        start, end)
+
     rows = cur.fetchall()
 
     prev_entryid = None
@@ -100,8 +109,9 @@ def get_ending_balances_by_entry_and_bucket(start=None, end=None):
     return result
 
 def get_entries(start=None, end=None):
-    cur = g.db.execute('select description, amountcents, srcbucketname, srcbucketid, ' +
-        'destbucketname, destbucketid, entryid from entries_labeled')
+    cur = rangeDateQuery('select description, amountcents, srcbucketname, srcbucketid, ' +
+        'destbucketname, destbucketid, entryid, date from entries_labeled', start, end)
+
     entries = [ 
         dict(
             description=row[0],
@@ -110,7 +120,8 @@ def get_entries(start=None, end=None):
             srcbucketid=row[3],
             destbucket=str(row[4]),
             destbucketid=row[5],
-            entryid=row[6]
+            entryid=row[6],
+            datetime=row[7]
         ) for row in cur.fetchall() ]
     return entries
 
@@ -126,30 +137,18 @@ def get_entries_with_changes_and_balances(start=None, end=None):
 
     return (entries, initial_balances)
 
-    '''
-    internals = get_balances_at(start)
-    numinternals = len(internals)
-
-    runningtotals = [b['initialbalancecents'] for b in internals]
-    cur = g.db.execute('select entryid, bucketid_for_change, amountcents from entries_with_bucket_changes')
-
-    for i, row in enumerate(cur.fetchall()):
-        if(i % numinternals == 0):
-            entries[i / numinternals]['internals'] = []
-            entries[i / numinternals]['balances'] = []
-        change_string = cents_to_string( int(row[2]) ) if row[2] <> 0 else "-"
-        entries[i / numinternals]['internals'] += [ change_string ]
-        runningtotals[i % numinternals] += row[2]
-        entries[i / numinternals]['balances'] += [ cents_to_string( int(runningtotals[i % numinternals]) ) ]
-
-    return (entries, internals)
-    '''
-
 @app.route('/')
+@app.route('/show_entries')
 def show_entries():
-    entries, initial_balances = get_entries_with_changes_and_balances()
+    start = request.args.get('start', None)
+    end = request.args.get('end', None)
+
+    history_img_url = url_for('history_png', start=start, end=end)
+
+    entries, initial_balances = get_entries_with_changes_and_balances(start, end)
     return render_template('show_entries.html', entries=entries,
-                           initial_balances=initial_balances)
+                           initial_balances=initial_balances, start=start, end=end,
+                           history_img_url=history_img_url)
 
 @app.route('/add_entry', methods=['POST'])
 def add_entry():
@@ -200,10 +199,13 @@ def add_bucket():
 
 @app.route('/history.png')
 def history_png():
-    entries, initial_balances = get_entries_with_changes_and_balances()
+    start = request.args.get('start', None)
+    end = request.args.get('end', None)
+
+    entries, initial_balances = get_entries_with_changes_and_balances(start, end)
 
     xvalues = pylab.arange(0, len(entries)+1, 1)
-    yvalues = [[initial_balance['initialbalancecents'] / 100.0] for initial_balance in initial_balances]
+    yvalues = [[initial_balance['balancecents'] / 100.0] for initial_balance in initial_balances]
     seriesnames = [initial_balance['bucketname'] for initial_balance in initial_balances]
 
     for e in entries:
