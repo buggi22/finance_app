@@ -66,6 +66,9 @@ def get_balances_at(datetime=None):
     return balances
 
 def rangeDateQuery(baseQuery, start, end):
+    if start == "": start = None
+    if end == "": end = None
+
     if start == None and end == None:
         cur = g.db.execute(baseQuery)
     elif start == None:

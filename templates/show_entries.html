@@ -1,6 +1,16 @@
 {% extends "layout.html" %}
 {% block body %}
   <p />
+
+  <form id="fiter_form" action="{{ url_for('show_entries') }}" method="get">
+  <strong>Filter by date: </strong>
+  Start: <input type="text" size="10" value="{{ start }}" name="start">
+  End: <input type="text" size="10" value="{{ end }}" name="end">
+  <input type="submit" value="Go">
+  </form>
+
+  <p />
+
   <a href="{{ url_for('show_buckets') }}">Show Buckets</a><br />
   <img src="{{ history_img_url }}" />
 
@@ -50,6 +60,7 @@
   {% endfor %}
   {% if session.logged_in %}
     <tr>
+      <td>Date and Time<br/><input type=text size=10 name=datetime></td>
       <td>Amount<br/><input type=text size=10 name=amount></td>
       <td>From<br/><input type=text size=10 name=srcbucket></td>
       <td>To<br/><input type=text size=10 name=destbucket></td>
