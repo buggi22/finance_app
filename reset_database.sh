@@ -2,7 +2,11 @@
 
 set -e
 
-rm /tmp/finance.db
+if [ -e /tmp/finance.db ]
+then
+  rm -i /tmp/finance.db
+fi
+
 cd database_setup
 sqlite3 /tmp/finance.db < schema.sql
 cd ..
