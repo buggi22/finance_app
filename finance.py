@@ -37,6 +37,9 @@ def update_balances(balances, changes):
     for i, bucket_balance in enumerate(balances):
         new_balance = changes[i]['amountcents'] + bucket_balance['balancecents']
 
+        if(bucket_balance['bucketname'] != changes[i]['bucketname']):
+            raise Exception("ERROR: bucket name mismatch: %s vs %s" % (bucket_balance['bucketname'], changes[i]['bucketname']))
+
     	result.append( {
             'bucketname': bucket_balance['bucketname'],
             'balancecents': new_balance,
@@ -45,7 +48,10 @@ def update_balances(balances, changes):
 
     return result
 
-def get_balances_at(datetime=None):
+def get_balances_at(datetime=""):
+    # NOTE: datetime == "" means: get current balances (ie, most recent)
+    #       datetime == "init" means: get the earliest recorded balances
+
     cur = g.db.execute('select bucketid, bucketname, initialbalancecents from buckets where buckettype = "internal"')
     initial_balances = [
         dict(
@@ -54,34 +60,31 @@ def get_balances_at(datetime=None):
             balancestring=cents_to_string(row[2])
         ) for row in cur.fetchall() ]
 
-    if(datetime == None):
+    if(datetime == "init"):
         return initial_balances
 
     balances = [] + initial_balances
     
-    list_of_changes = get_changes_by_entry_and_bucket(start=None, end=datetime)
+    list_of_changes = get_changes_by_entry_and_bucket(start="", end=datetime)
     for changes in list_of_changes:
         balances = update_balances(balances, changes)
 
     return balances
 
 def rangeDateQuery(baseQuery, start, end):
-    if start == "": start = None
-    if end == "": end = None
-
-    if start == None and end == None:
+    if start == "" and end == "":
         cur = g.db.execute(baseQuery)
-    elif start == None:
+    elif start == "":
         cur = g.db.execute(baseQuery + ' where date <= ?', [end])
-    elif end == None:
+    elif end == "":
         cur = g.db.execute(baseQuery + ' where date >= ?', [start])
     else:
         cur = g.db.execute(baseQuery + ' where date >= ? and date <= ?',
                            [start, end])
     return cur
 
-def get_changes_by_entry_and_bucket(start=None, end=None):
-    cur = rangeDateQuery('select entryid, bucketid_for_change, amountcents, date from entries_with_bucket_changes',
+def get_changes_by_entry_and_bucket(start="", end=""):
+    cur = rangeDateQuery('select entryid, bucketid_for_change, bucketname_for_change, amountcents, date from entries_with_bucket_changes',
         start, end)
 
     rows = cur.fetchall()
@@ -93,15 +96,17 @@ def get_changes_by_entry_and_bucket(start=None, end=None):
         if(row[0] != prev_entryid):
             result.append( [] )
         result[-1].append( dict(
-            amountcents = row[2],
-            amountstring = cents_to_string(int(row[2])) if row[2] != 0 else '-'
+            bucketname = row[2],
+            amountcents = row[3],
+            amountstring = cents_to_string(int(row[3])) if row[3] != 0 else '-'
         ) )
         prev_entryid = row[0]
 
     return result
 
-def get_ending_balances_by_entry_and_bucket(start=None, end=None):
-    balances = get_balances_at(start)
+def get_ending_balances_by_entry_and_bucket(start="", end=""):
+    init_datetime = "init" if start == "" else start
+    balances = get_balances_at(init_datetime)
     result = []
     list_of_changes = get_changes_by_entry_and_bucket(start, end)
 
@@ -111,7 +116,7 @@ def get_ending_balances_by_entry_and_bucket(start=None, end=None):
 
     return result
 
-def get_entries(start=None, end=None):
+def get_entries(start="", end=""):
     cur = rangeDateQuery('select description, amountcents, srcbucketname, srcbucketid, ' +
         'destbucketname, destbucketid, entryid, date from entries_labeled', start, end)
 
@@ -128,9 +133,12 @@ def get_entries(start=None, end=None):
         ) for row in cur.fetchall() ]
     return entries
 
-def get_entries_with_changes_and_balances(start=None, end=None):
+def get_entries_with_changes_and_balances(start="", end=""):
     entries = get_entries(start, end)
-    initial_balances = get_balances_at(start)
+
+    init_datetime = "init" if start == "" else start
+    initial_balances = get_balances_at(init_datetime)
+
     changes = get_changes_by_entry_and_bucket(start, end)
     balances = get_ending_balances_by_entry_and_bucket(start, end)
 
@@ -140,18 +148,19 @@ def get_entries_with_changes_and_balances(start=None, end=None):
 
     return (entries, initial_balances)
 
-@app.route('/')
 @app.route('/show_entries')
+@app.route('/')
 def show_entries():
-    start = request.args.get('start', None)
-    end = request.args.get('end', None)
+    start = request.args.get('start', "")
+    end = request.args.get('end', "")
 
     history_img_url = url_for('history_png', start=start, end=end)
+    balance_pie_img_url = url_for('balance_pie_png', datetime=end)
 
     entries, initial_balances = get_entries_with_changes_and_balances(start, end)
     return render_template('show_entries.html', entries=entries,
                            initial_balances=initial_balances, start=start, end=end,
-                           history_img_url=history_img_url)
+                           history_img_url=history_img_url, balance_pie_img_url=balance_pie_img_url)
 
 @app.route('/add_entry', methods=['POST'])
 def add_entry():
@@ -202,8 +211,8 @@ def add_bucket():
 
 @app.route('/history.png')
 def history_png():
-    start = request.args.get('start', None)
-    end = request.args.get('end', None)
+    start = request.args.get('start', "")
+    end = request.args.get('end', "")
 
     entries, initial_balances = get_entries_with_changes_and_balances(start, end)
 
@@ -225,6 +234,27 @@ def history_png():
 
     imgdata = StringIO.StringIO()
     pylab.savefig(imgdata, format='png', dpi=80)
+    imgdata.seek(0)
+
+    response = make_response( imgdata.read() )
+    response.mimetype = 'image/png'
+
+    return response
+
+@app.route('/balance_pie.png')
+def balance_pie_png():
+    datetime = request.args.get('datetime', "")
+
+    balances = get_balances_at(datetime=datetime)
+
+    values = [b['balancecents'] for b in balances]
+    labels = [b['bucketname'] for b in balances]
+
+    pylab.clf() # clear current figure
+    pylab.pie(values, labels=labels)
+
+    imgdata = StringIO.StringIO()
+    pylab.savefig(imgdata, format='png', dpi=60)
     imgdata.seek(0)
 
     response = make_response( imgdata.read() )

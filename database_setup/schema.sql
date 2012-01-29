@@ -114,9 +114,10 @@ select
   entries_cross_buckets.entryid as entryid,
   date,
   bucketid_for_change,
+  bucketname_for_change,
   case when de.amountcents isnull then 0.0 else de.amountcents end as amountcents
 from
-  (select entryid, date, buckets.bucketid as bucketid_for_change
+  (select entryid, date, buckets.bucketid as bucketid_for_change, buckets.bucketname as bucketname_for_change
     from entries, buckets where buckets.buckettype = "internal") as entries_cross_buckets
   left outer join
   double_entries_labeled_expand_proportions as de
