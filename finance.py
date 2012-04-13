@@ -38,7 +38,8 @@ def update_balances(balances, changes):
         new_balance = changes[i]['amountcents'] + bucket_balance['balancecents']
 
         if(bucket_balance['bucketname'] != changes[i]['bucketname']):
-            raise Exception("ERROR: bucket name mismatch: %s vs %s" % (bucket_balance['bucketname'], changes[i]['bucketname']))
+            raise Exception("ERROR: bucket name mismatch: %s vs %s" %
+                (bucket_balance['bucketname'], changes[i]['bucketname']))
 
     	result.append( {
             'bucketname': bucket_balance['bucketname'],
@@ -48,8 +49,8 @@ def update_balances(balances, changes):
 
     return result
 
-def get_balances_at(datetime=""):
-    # NOTE: datetime == "" means: get current balances (ie, most recent)
+def get_balances_at(datetime=None):
+    # NOTE: datetime == None means: get current balances (ie, most recent)
     #       datetime == "init" means: get the earliest recorded balances
 
     cur = g.db.execute('select bucketid, bucketname, initialbalancecents from buckets where buckettype = "internal"')
@@ -65,27 +66,27 @@ def get_balances_at(datetime=""):
 
     balances = [] + initial_balances
     
-    list_of_changes = get_changes_by_entry_and_bucket(start="", end=datetime)
+    list_of_changes = get_changes_by_entry_and_bucket(start=None, end=datetime)
     for changes in list_of_changes:
         balances = update_balances(balances, changes)
 
     return balances
 
 def rangeDateQuery(baseQuery, start, end):
-    if start == "" and end == "":
+    if start == None and end == None:
         cur = g.db.execute(baseQuery)
-    elif start == "":
+    elif start == None:
         cur = g.db.execute(baseQuery + ' where date <= ?', [end])
-    elif end == "":
+    elif end == None:
         cur = g.db.execute(baseQuery + ' where date >= ?', [start])
     else:
         cur = g.db.execute(baseQuery + ' where date >= ? and date <= ?',
                            [start, end])
     return cur
 
-def get_changes_by_entry_and_bucket(start="", end=""):
-    cur = rangeDateQuery('select entryid, bucketid_for_change, bucketname_for_change, amountcents, date from entries_with_bucket_changes',
-        start, end)
+def get_changes_by_entry_and_bucket(start=None, end=None):
+    cur = rangeDateQuery('select entryid, bucketid_for_change, bucketname_for_change, amountcents, date ' +
+        'from entries_with_bucket_changes', start, end)
 
     rows = cur.fetchall()
 
@@ -104,8 +105,8 @@ def get_changes_by_entry_and_bucket(start="", end=""):
 
     return result
 
-def get_ending_balances_by_entry_and_bucket(start="", end=""):
-    init_datetime = "init" if start == "" else start
+def get_ending_balances_by_entry_and_bucket(start=None, end=None):
+    init_datetime = "init" if start == None else start
     balances = get_balances_at(init_datetime)
     result = []
     list_of_changes = get_changes_by_entry_and_bucket(start, end)
@@ -116,7 +117,7 @@ def get_ending_balances_by_entry_and_bucket(start="", end=""):
 
     return result
 
-def get_entries(start="", end=""):
+def get_entries(start=None, end=None):
     cur = rangeDateQuery('select description, amountcents, srcbucketname, srcbucketid, ' +
         'destbucketname, destbucketid, entryid, date from entries_labeled', start, end)
 
@@ -133,10 +134,10 @@ def get_entries(start="", end=""):
         ) for row in cur.fetchall() ]
     return entries
 
-def get_entries_with_changes_and_balances(start="", end=""):
+def get_entries_with_changes_and_balances(start=None, end=None):
     entries = get_entries(start, end)
 
-    init_datetime = "init" if start == "" else start
+    init_datetime = "init" if start == None else start
     initial_balances = get_balances_at(init_datetime)
 
     changes = get_changes_by_entry_and_bucket(start, end)
@@ -151,8 +152,10 @@ def get_entries_with_changes_and_balances(start="", end=""):
 @app.route('/show_entries')
 @app.route('/')
 def show_entries():
-    start = request.args.get('start', "")
-    end = request.args.get('end', "")
+    start = request.args.get('start', None)
+    end = request.args.get('end', None)
+    if start == '': start = None
+    if end == '': end = None
 
     history_img_url = url_for('history_png', start=start, end=end)
     balance_pie_img_url = url_for('balance_pie_png', datetime=end)
@@ -168,8 +171,10 @@ def add_entry():
         abort(401)
     srcbucket  = bucketname_to_int(request.form['srcbucket'])
     destbucket = bucketname_to_int(request.form['destbucket'])
-    g.db.execute('insert into entries (description, amountcents, srcbucket, destbucket) values (?, ?, ?, ?)',
-            [request.form['description'], string_to_cents(request.form['amount']), srcbucket, destbucket ])
+    g.db.execute('insert into entries (date, description, amountcents, srcbucket, destbucket) ' +
+            'values (?, ?, ?, ?, ?)',
+            [request.form['datetime'], request.form['description'], string_to_cents(request.form['amount']), 
+            srcbucket, destbucket ])
     g.db.commit()
     flash('New entry was successfully posted')
     return redirect(url_for('show_entries'))
@@ -211,8 +216,10 @@ def add_bucket():
 
 @app.route('/history.png')
 def history_png():
-    start = request.args.get('start', "")
-    end = request.args.get('end', "")
+    start = request.args.get('start', None)
+    end = request.args.get('end', None)
+    if start == '': start = None
+    if end == '': end = None
 
     entries, initial_balances = get_entries_with_changes_and_balances(start, end)
 
@@ -243,7 +250,8 @@ def history_png():
 
 @app.route('/balance_pie.png')
 def balance_pie_png():
-    datetime = request.args.get('datetime', "")
+    datetime = request.args.get('datetime', None)
+    if datetime == '': datetime = None
 
     balances = get_balances_at(datetime=datetime)
 

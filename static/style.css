@@ -27,3 +27,7 @@ h2              { font-size: 1.2em; }
 .resultingbalance td { border-bottom: 2px solid #000; }
 
 .wide { height: 500px; overflow: auto; }
+
+/*
+.entries tbody { height: 500px; width: 100%; overflow-x: visible; overflow-y: auto; }
+*/

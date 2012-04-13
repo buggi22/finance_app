@@ -4,8 +4,8 @@
 
   <form id="fiter_form" action="{{ url_for('show_entries') }}" method="get">
   <strong>Filter by date: </strong>
-  Start: <input type="text" size="10" value="{{ start }}" name="start">
-  End: <input type="text" size="10" value="{{ end }}" name="end">
+  Start: <input type="text" size="10" value="{{ start if start != None else "" }}" name="start">
+  End: <input type="text" size="10" value="{{ end if end != None else "" }}" name="end">
   <input type="submit" value="Go">
   </form>
 
@@ -17,10 +17,11 @@
 
   <div class="wide">
   {% if session.logged_in %}
-  <form action="{{ url_for('add_entry') }}" metdod=post>
+  <form action="{{ url_for('add_entry') }}" method="post">
   {% endif %}
 
   <table class="entries">
+    <thead>
     <tr class="entry-header">
       <td>Date</td>
       <td>Amount</td>
@@ -31,6 +32,9 @@
       <td>{{ initial_balance.bucketname }}</td>
       {% endfor %}
     </tr>
+    </thead>
+
+    <tbody>
     <tr class=resultingbalance>
       <td colspan=4>&nbsp;</td>
       <td>Initial: </td>
@@ -81,6 +85,7 @@
       <td>&nbsp;</td>
       {% endfor %}
     </tr>
+    </tbody>
   {% endif %}
   </table>
 
